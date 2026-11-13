@@ -1,4 +1,4 @@
-import {handleAI} from '../../lib/ai.mjs';
+import {handleAI} from './ai.mjs';
 import {assets} from './assets.mjs';
 export default {
   async fetch(request) {

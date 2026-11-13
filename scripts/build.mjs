@@ -40,4 +40,5 @@ for (const size of [192,512]) fs.writeFileSync('public/icon-'+size+'.png',icon(s
 const assets = Object.fromEntries(fs.readdirSync('public').map(file => ['/'+file,[types[path.extname(file)],fs.readFileSync('public/'+file).toString('base64')]]));
 fs.mkdirSync('dist/server',{recursive:true});
 fs.copyFileSync('site-worker.mjs','dist/server/index.js');
+fs.copyFileSync('lib/ai.mjs','dist/server/ai.mjs');
 fs.writeFileSync('dist/server/assets.mjs','export const assets = '+JSON.stringify(assets)+';');
