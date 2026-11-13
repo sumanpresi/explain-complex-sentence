@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#182c27"><meta name="description" content="Find documents in Google Drive and simplify any selected passage."><title>Sentence Lens</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon-192.png"><link rel="stylesheet" href="/style.css"><script defer src="https://accounts.google.com/gsi/client"></script><script type="module" src="/app.mjs"></script></head>
+<body>
+<header class="top"><a class="brand" href="/" aria-label="Sentence Lens home"><span class="mark">↳</span><span>Sentence Lens</span></a><div class="top-actions"><button id="install" hidden>Install app</button><button id="settings" aria-haspopup="dialog">Model settings</button><button id="connect">Connect Drive</button></div></header>
+<main>
+<div class="intro"><div><p class="eyebrow">GOOGLE DRIVE READER</p><h1>Make sense of<br>complex sentences.</h1></div><p>Open a document, select the words you want to understand, and get a one-line explanation.</p></div>
+<div class="workspace">
+<aside class="library" aria-label="Drive library"><div class="panel-head"><h2>Library</h2><span class="status" id="drive-status">Disconnected</span></div>
+<form id="search-form"><label class="sr" for="query">Search Google Drive</label><input type="search" id="query" placeholder="Search Google Drive" disabled><button type="submit" id="search" disabled aria-label="Search Drive">Search</button></form>
+<div id="files"><p class="muted">Connect Drive to search your documents.</p></div><button id="more" hidden>Load more</button>
+<button class="sample" id="sample"><span class="doc-icon">Aa</span><span><strong>Sample document</strong><small>Meeting minutes</small></span></button></aside>
+<section class="reader" aria-labelledby="file-title"><div class="panel-head reader-head"><div><p class="eyebrow" id="file-kind">SAMPLE DOCUMENT</p><h2 id="file-title">Meeting minutes</h2></div><a id="drive-link" target="_blank" rel="noopener" hidden>Open in Drive ↗</a></div>
+<div class="paper" id="paper" tabindex="0" aria-label="Document text"></div><label for="selection">Selected passage</label><textarea id="selection" rows="3" placeholder="Select text above or paste a passage here." maxlength="4000"></textarea><div class="reader-actions"><span id="selection-status" aria-live="polite">Select text in the document or paste a passage.</span><button class="primary" id="explain">Explain selection <span aria-hidden="true">↗</span></button></div></section>
+<aside class="inspector" aria-labelledby="explanation-title"><div class="panel-head"><h2 id="explanation-title">Explanation</h2><span class="spark" aria-hidden="true">✦</span></div><div class="answer" id="answer" aria-live="polite">Your one-line explanation will appear here.</div><button id="copy" hidden>Copy explanation</button><p class="model-status" id="model-status">Sample mode</p></aside>
+</div><p id="notice" role="status" aria-live="polite"></p></main>
+<dialog id="model-dialog"><form id="model-form"><div class="panel-head"><h2>Model settings</h2><button type="button" id="close-settings" aria-label="Close settings">×</button></div>
+<label for="provider">Provider</label><select id="provider"><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="claude">Claude</option></select>
+<label for="model">Model</label><select id="model"></select>
+<label for="key">API key</label><input id="key" type="password" autocomplete="off" placeholder="Enter your provider API key"><p class="muted">The key stays in memory until you close or refresh this page. Your selected text and context are sent to the chosen provider.</p><p id="models-feedback" role="status"></p>
+<div class="settings-actions"><button type="button" id="check-models">Check model access</button><button class="primary">Save settings</button></div></form></dialog></body></html>
