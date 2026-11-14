@@ -80,15 +80,16 @@ function disconnect(message, revoke = true) {
   $('query').value = '';
   $('files').textContent = 'Connect Drive to search your documents.';
   connected(false);
+  resetStyleDrive();
   sample();
   notice(message);
 }
-async function drive(path, params = {}) {
+async function drive(path, params = {}, options = {}) {
   const activeToken = token;
   if (!activeToken) throw new Error('Connect Google Drive to continue.');
   const url = new URL(path, driveBase);
   url.search = new URLSearchParams(params);
-  const result = await fetch(url, {headers:{Authorization:'Bearer ' + activeToken}});
+  const result = await fetch(url, {...options, headers:{...options.headers,Authorization:'Bearer ' + activeToken}});
   if (result.status === 401 && activeToken === token) disconnect('Your Drive session expired. Connect again to continue.', false);
   if (!result.ok) {
     const problem = await result.json().catch(() => ({}));
@@ -102,7 +103,7 @@ $('connect').onclick = () => {
   notice('');
   window.google.accounts.oauth2.initTokenClient({
     client_id:clientId, hint:account, include_granted_scopes:false,
-    scope:'https://www.googleapis.com/auth/drive.readonly',
+    scope:'https://www.googleapis.com/auth/drive.readonly ' + styleScope,
     error_callback: error => notice(error.type === 'popup_closed' ? 'Google sign-in was closed.' : 'Google sign-in could not open. Check popup settings and the authorized origin.'),
     callback: async response => {
       if (response.error || !response.access_token) return notice(response.error_description || 'Google Drive authorization failed.');
@@ -114,6 +115,8 @@ $('connect').onclick = () => {
         }
         tokenTimer = setTimeout(() => disconnect('Your Drive session expired. Connect again to continue.', false), Math.max(1, Number(response.expires_in) - 25 || 3500) * 1000);
         connected(true);
+        styleWritable = window.google.accounts.oauth2.hasGrantedAllScopes(response, styleScope);
+        styleLoad = loadDriveStyle(token);
         await listFiles();
       } catch (error) { if (token) disconnect(error.message, false); }
     }
@@ -393,19 +396,90 @@ window.addEventListener('appinstalled', () => { $('install').hidden = true; });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 sample();
 const styleNotesKey = 'sentence-lens-writing-style';
-let styleNotes = '';
-try { styleNotes = localStorage.getItem(styleNotesKey)?.slice(0,3000) || ''; } catch {}
-$('writing-style-notes').value = styleNotes;
+const styleScope = 'https://www.googleapis.com/auth/drive.file';
+const styleMarker = 'writing-style-v1';
+const initialStyle = "Write in clear, courteous Indian English. Keep routine emails brief and use a specific subject. For monthly submissions, include the report or dataset name and reporting month in the subject.\n\nFor formal groups, use \"महोदय/महोदया\" followed by \"Sir/Madam,\" where bilingual addressing is appropriate. For a known recipient, use \"Sir,\" or \"Madam,\" as appropriate. Close bilingual official mail with \"सादर/Regards,\".\n\nFor routine submissions, name the attachment and reporting period. One sentence is enough when sharing the file for information. When forwarding an email, refer to the earlier message and state the action or response needed, if any.\n\nFor review requests, name the draft documents and ask the recipient to convey concurrence or suggest changes. State who will give final approval when known. Keep review, concurrence and approval distinct.";
+let styleNotes = initialStyle;
+let styleFileId = '', styleLoad = Promise.resolve(), styleWritable = false, styleBusy = false, styleReady = false;
+const styleEditor = $('writing-style-notes');
+const styleStatus = $('writing-training-status');
+const styleSave = $('save-style-notes');
+try { styleNotes = localStorage.getItem(styleNotesKey)?.slice(0,3000) ?? initialStyle; } catch {}
+styleEditor.value = styleNotes;
 
-$('save-style-notes').onclick = () => {
-  const notes = $('writing-style-notes').value.trim();
+function cacheStyle(notes) {
+  styleNotes = notes;
+  try { localStorage.setItem(styleNotesKey, notes); } catch {}
+}
+function resetStyleDrive() {
+  styleFileId = '';
+  styleWritable = styleReady = styleBusy = false;
+  styleSave.disabled = false;
+  styleLoad = Promise.resolve();
+  styleStatus.textContent = 'Connect Drive to sync notes.';
+}
+async function loadDriveStyle(session) {
+  const original = styleEditor.value;
+  styleSave.disabled = true;
+  styleStatus.textContent = 'Checking Google Drive…';
   try {
-    if (notes) localStorage.setItem(styleNotesKey, notes);
-    else localStorage.removeItem(styleNotesKey);
-    styleNotes = notes;
-    $('writing-training-status').textContent = notes ? 'Style notes saved on this browser.' : 'Saved style notes cleared.';
-  } catch {
-    $('writing-training-status').textContent = 'This browser could not save your notes.';
+    const data = await (await drive('files',{
+      q:"trashed = false and appProperties has { key='sentenceLens' and value='" + styleMarker + "' }",
+      fields:'files(id)', orderBy:'modifiedTime desc', pageSize:1
+    })).json();
+    if (session !== token) return;
+    const id = data.files?.[0]?.id;
+    if (id) {
+      const saved = await (await drive('files/' + encodeURIComponent(id),{alt:'media'})).json();
+      if (session !== token) return;
+      if (typeof saved.notes !== 'string' || saved.notes.length > 3000) throw new Error('The saved Drive style file could not be read.');
+      styleFileId = id;
+      // Preserve edits made before or during sign-in.
+      if (styleEditor.value === original && original === styleNotes) styleEditor.value = saved.notes;
+      cacheStyle(saved.notes);
+    }
+    styleReady = true;
+    styleStatus.textContent = !styleWritable ? 'Reconnect and allow file access to save to Drive.' :
+      id ? 'Style notes loaded from Google Drive.' : 'Save your style notes to Google Drive.';
+  } catch (error) {
+    if (session === token) styleStatus.textContent = error.message + ' Drafts can still use the notes on this browser.';
+  } finally {
+    if (session === token) styleSave.disabled = false;
+  }
+}
+
+styleSave.onclick = async () => {
+  if (!token) { $('connect').click(); return; }
+  if (styleBusy) return;
+  if (!styleWritable) { styleStatus.textContent = 'Reconnect Drive and allow file access.'; return; }
+  const session = token;
+  const notes = styleEditor.value.trim().slice(0,3000);
+  if (!styleReady) await (styleLoad = loadDriveStyle(session));
+  if (session !== token || !styleReady || styleBusy) return;
+  styleBusy = styleSave.disabled = true;
+  styleStatus.textContent = 'Saving to Google Drive…';
+  try {
+    const data = JSON.stringify({notes});
+    const filePath = 'files' + (styleFileId ? '/' + encodeURIComponent(styleFileId) : '');
+    const upload = 'https://www.googleapis.com/upload/drive/v3/' + filePath;
+    const boundary = 'sentence-lens-' + crypto.randomUUID();
+    const metadata = JSON.stringify({name:'Sentence Lens - Writing Style.json',mimeType:'application/json',appProperties:{sentenceLens:styleMarker}});
+    const body = styleFileId ? data : '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + metadata +
+      '\r\n--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + data + '\r\n--' + boundary + '--';
+    const result = await drive(upload, {uploadType:styleFileId ? 'media' : 'multipart',fields:'id'}, {
+      method:styleFileId ? 'PATCH' : 'POST',
+      headers:{'Content-Type':styleFileId ? 'application/json' : 'multipart/related; boundary=' + boundary},
+      body
+    });
+    const saved = await result.json();
+    if (session !== token) return;
+    styleFileId = saved.id;
+    cacheStyle(notes);
+    styleStatus.textContent = 'Style notes saved to Google Drive.';
+  } catch (error) {
+    if (session === token) { styleReady = false; styleStatus.textContent = error.message; }
+  } finally {
+    if (session === token) styleBusy = styleSave.disabled = false;
   }
 };
 
@@ -437,6 +511,7 @@ $('writing-form').onsubmit = async event => {
   button.disabled = true;
   status.textContent = 'Writing draft…';
   try {
+    await styleLoad;
     const data = await api('draft', {
       ...settings, notes, styleNotes, format:$('writing-format').value, audience:$('writing-audience').value.trim()
     });
