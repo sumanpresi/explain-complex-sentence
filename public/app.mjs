@@ -392,3 +392,70 @@ $('install').onclick = async () => {
 window.addEventListener('appinstalled', () => { $('install').hidden = true; });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 sample();
+const styleNotesKey = 'sentence-lens-writing-style';
+let styleNotes = '';
+try { styleNotes = localStorage.getItem(styleNotesKey)?.slice(0,3000) || ''; } catch {}
+$('writing-style-notes').value = styleNotes;
+
+$('save-style-notes').onclick = () => {
+  const notes = $('writing-style-notes').value.trim();
+  try {
+    if (notes) localStorage.setItem(styleNotesKey, notes);
+    else localStorage.removeItem(styleNotesKey);
+    styleNotes = notes;
+    $('writing-training-status').textContent = notes ? 'Style notes saved on this browser.' : 'Saved style notes cleared.';
+  } catch {
+    $('writing-training-status').textContent = 'This browser could not save your notes.';
+  }
+};
+
+$('copy-mail-request').onclick = async () => {
+  const folder = $('writing-folder').value;
+  const request = 'Use my signed-in NIC Workplace session to review up to 10 suitable messages in ' + folder +
+    ' for my personal work mailbox. Use only writing I authored. Ignore quoted replies, signatures, attachments, OTPs and automated mail. ' +
+    'Return up to six reusable style patterns, with no message text, names or operational details, for the Style notes field in Sentence Lens.';
+  const feedback = $('writing-training-status');
+  try {
+    await navigator.clipboard.writeText(request);
+    feedback.textContent = 'Review request copied.';
+  } catch {
+    feedback.textContent = request;
+  }
+};
+
+const draft = $('writing-result');
+draft.oninput = () => { $('copy-draft').disabled = !draft.value.trim(); };
+$('writing-form').onsubmit = async event => {
+  event.preventDefault();
+  const status = $('writing-status');
+  const button = $('write-draft');
+  if (button.disabled) return;
+  const notes = $('writing-input').value.trim();
+  if (!notes) { status.textContent = 'Enter a rough draft or notes.'; return; }
+  if (!settings.key) { status.textContent = 'Add an API key in Model settings first.'; return; }
+  const previousDraft = draft.value;
+  button.disabled = true;
+  status.textContent = 'Writing draft…';
+  try {
+    const data = await api('draft', {
+      ...settings, notes, styleNotes, format:$('writing-format').value, audience:$('writing-audience').value.trim()
+    });
+    if (draft.value === previousDraft) {
+      draft.value = data.draft;
+      draft.oninput();
+      status.textContent = 'Draft ready.';
+    } else {
+      status.textContent = 'Your edits were preserved. Generate again to replace them.';
+    }
+  } catch (error) { status.textContent = error.message; }
+  finally { button.disabled = false; }
+};
+
+$('copy-draft').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(draft.value);
+    $('writing-status').textContent = 'Draft copied.';
+  } catch {
+    $('writing-status').textContent = 'Select and copy the draft manually.';
+  }
+};

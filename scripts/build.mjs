@@ -41,4 +41,5 @@ const assets = Object.fromEntries(fs.readdirSync('public').map(file => ['/'+file
 fs.mkdirSync('dist/server',{recursive:true});
 fs.copyFileSync('site-worker.mjs','dist/server/index.js');
 fs.copyFileSync('lib/ai.mjs','dist/server/ai.mjs');
+fs.copyFileSync('lib/writing-style.mjs','dist/server/writing-style.mjs');
 fs.writeFileSync('dist/server/assets.mjs','export const assets = '+JSON.stringify(assets)+';');
