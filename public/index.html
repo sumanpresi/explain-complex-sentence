@@ -15,6 +15,12 @@
 </div><p id="notice" role="status" aria-live="polite"></p>
 <section class="reader writing" id="write-like-suman" aria-labelledby="writing-title">
   <h2 id="writing-title">Write Like Suman</h2>
+  <label for="writing-profile">Writing profile and mailbox</label>
+  <select id="writing-profile">
+    <option value="personal">Suman Das · suman1.das@gsi.gov.in</option>
+    <option value="m3c">DDG M3C office · ddg.m3c@gsi.gov.in</option>
+    <option value="helpdesk">NGDR Helpdesk · ngdr_helpdesk@gsi.gov.in</option>
+  </select>
   <div class="writing-grid">
     <form id="writing-form">
       <label for="writing-format">Format</label>
@@ -38,11 +44,12 @@
   </div>
   <details class="writing-training">
     <summary>Learn from work mail</summary>
-    <p class="muted">Open NIC in a separate tab. To review a folder, copy the request below into ChatGPT with your signed-in mail session available. Paste the resulting writing patterns into Style notes. Use your own writing from Inbox threads.</p>
+    <p class="muted">Open NIC Workplace and select the mailbox above. Paste the review request into ChatGPT with your signed-in NIC tab available. When the review finishes, paste the style notes here and save them to Drive.</p>
     <div class="writing-links"><a href="https://accounts.mgovcloud.in/signin" target="_blank" rel="noopener noreferrer">Open NIC sign-in ↗</a>
     <a href="https://workplace.mgovcloud.in/" target="_blank" rel="noopener noreferrer">Open NIC Workplace ↗</a></div>
     <label for="writing-folder">Folder to review</label>
     <select id="writing-folder"><option>Sent</option><option>Inbox</option></select>
+    <label for="writing-review-count">Messages to review</label><select id="writing-review-count"><option>10</option><option selected>25</option><option>50</option><option value="all">All available</option></select>
     <button type="button" id="copy-mail-request">Copy mailbox review request</button>
     <label for="writing-style-notes">Style notes</label>
     <textarea id="writing-style-notes" rows="4" maxlength="3000" placeholder="Paste general writing patterns, without message text or mailbox details."></textarea>

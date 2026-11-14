@@ -397,21 +397,51 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
 sample();
 const styleNotesKey = 'sentence-lens-writing-style';
 const styleScope = 'https://www.googleapis.com/auth/drive.file';
-const styleMarker = 'writing-style-v1';
+const personalMarker = 'writing-style-v1';
 const initialStyle = "Write in clear, courteous Indian English. Keep routine emails brief and use a specific subject. For monthly submissions, include the report or dataset name and reporting month in the subject.\n\nFor formal groups, use \"महोदय/महोदया\" followed by \"Sir/Madam,\" where bilingual addressing is appropriate. For a known recipient, use \"Sir,\" or \"Madam,\" as appropriate. Close bilingual official mail with \"सादर/Regards,\".\n\nFor routine submissions, name the attachment and reporting period. One sentence is enough when sharing the file for information. When forwarding an email, refer to the earlier message and state the action or response needed, if any.\n\nFor review requests, name the draft documents and ask the recipient to convey concurrence or suggest changes. State who will give final approval when known. Keep review, concurrence and approval distinct.";
-let styleNotes = initialStyle;
+const profiles = {
+  personal: {mailbox:'suman1.das@gsi.gov.in', seed:initialStyle},
+  m3c: {mailbox:'ddg.m3c@gsi.gov.in', seed:[
+    'Write in the DDG M3C office voice. Match the requested language: English-only or Hindi first followed by the English version. Keep bilingual facts and actions aligned.',
+    'For hall bookings and video conference link requests, state the meeting purpose, date, time and exact arrangement requested. For draft minutes, name the meeting and invite comments by the supplied deadline. For ATR replies, identify the points and attachment.',
+    'Include an approval line only if approval is supplied. Use VERY URGENT only when expressly required. Use a named DDG signature, a for-DDG block, or a designation-only block only as authorised by the user.'
+  ].join('\n\n')},
+  helpdesk: {mailbox:'ngdr_helpdesk@gsi.gov.in', seed:''}
+};
+const styleProfile = $('writing-profile');
+const profileKey = id => id === 'personal' ? styleNotesKey : styleNotesKey + ':' + id;
+const profileMarker = id => id === 'personal' ? personalMarker : 'writing-style-v1-' + id;
+let styleNotes;
 let styleFileId = '', styleLoad = Promise.resolve(), styleWritable = false, styleBusy = false, styleReady = false;
 const styleEditor = $('writing-style-notes');
 const styleStatus = $('writing-training-status');
 const styleSave = $('save-style-notes');
-try { styleNotes = localStorage.getItem(styleNotesKey)?.slice(0,3000) ?? initialStyle; } catch {}
-styleEditor.value = styleNotes;
+const unsavedStyles = new Map();
+let styleRequest = 0;
+function showCachedStyle() {
+  const id = styleProfile.value;
+  styleNotes = profiles[id].seed;
+  try { styleNotes = localStorage.getItem(profileKey(id))?.slice(0,3000) ?? styleNotes; } catch {}
+  styleEditor.value = unsavedStyles.get(id) ?? styleNotes;
+}
+styleEditor.oninput = () => unsavedStyles.set(styleProfile.value, styleEditor.value);
+styleProfile.onchange = () => {
+  const session = token;
+  const writable = styleWritable;
+  resetStyleDrive();
+  styleWritable = writable;
+  showCachedStyle();
+  if (session) styleLoad = loadDriveStyle(session);
+};
+showCachedStyle();
 
 function cacheStyle(notes) {
   styleNotes = notes;
-  try { localStorage.setItem(styleNotesKey, notes); } catch {}
+  try { localStorage.setItem(profileKey(styleProfile.value), notes); } catch {}
 }
 function resetStyleDrive() {
+  styleRequest++;
+  styleProfile.disabled = false;
   styleFileId = '';
   styleWritable = styleReady = styleBusy = false;
   styleSave.disabled = false;
@@ -419,32 +449,35 @@ function resetStyleDrive() {
   styleStatus.textContent = 'Connect Drive to sync notes.';
 }
 async function loadDriveStyle(session) {
+  const profile = styleProfile.value;
+  const current = () => session === token && profile === styleProfile.value && request === styleRequest;
+  const request = ++styleRequest;
   const original = styleEditor.value;
   styleSave.disabled = true;
   styleStatus.textContent = 'Checking Google Drive…';
   try {
     const data = await (await drive('files',{
-      q:"trashed = false and appProperties has { key='sentenceLens' and value='" + styleMarker + "' }",
+      q:"trashed = false and appProperties has { key='sentenceLens' and value='"  + profileMarker(profile) + "' }",
       fields:'files(id)', orderBy:'modifiedTime desc', pageSize:1
     })).json();
-    if (session !== token) return;
+    if (!current()) return;
     const id = data.files?.[0]?.id;
     if (id) {
       const saved = await (await drive('files/' + encodeURIComponent(id),{alt:'media'})).json();
-      if (session !== token) return;
+      if (!current()) return;
       if (typeof saved.notes !== 'string' || saved.notes.length > 3000) throw new Error('The saved Drive style file could not be read.');
       styleFileId = id;
       // Preserve edits made before or during sign-in.
-      if (styleEditor.value === original && original === styleNotes) styleEditor.value = saved.notes;
+      if (styleEditor.value === original && !unsavedStyles.has(profile)) styleEditor.value = saved.notes;
       cacheStyle(saved.notes);
     }
     styleReady = true;
     styleStatus.textContent = !styleWritable ? 'Reconnect and allow file access to save to Drive.' :
       id ? 'Style notes loaded from Google Drive.' : 'Save your style notes to Google Drive.';
   } catch (error) {
-    if (session === token) styleStatus.textContent = error.message + ' Drafts can still use the notes on this browser.';
+    if (current()) styleStatus.textContent = error.message + ' Drafts can still use the notes on this browser.';
   } finally {
-    if (session === token) styleSave.disabled = false;
+    if (current()) styleSave.disabled = false;
   }
 }
 
@@ -453,17 +486,18 @@ styleSave.onclick = async () => {
   if (styleBusy) return;
   if (!styleWritable) { styleStatus.textContent = 'Reconnect Drive and allow file access.'; return; }
   const session = token;
+  const profile = styleProfile.value;
   const notes = styleEditor.value.trim().slice(0,3000);
   if (!styleReady) await (styleLoad = loadDriveStyle(session));
-  if (session !== token || !styleReady || styleBusy) return;
-  styleBusy = styleSave.disabled = true;
+  if (session !== token || profile !== styleProfile.value || !styleReady || styleBusy) return;
+  styleBusy = styleSave.disabled = styleProfile.disabled = true;
   styleStatus.textContent = 'Saving to Google Drive…';
   try {
     const data = JSON.stringify({notes});
     const filePath = 'files' + (styleFileId ? '/' + encodeURIComponent(styleFileId) : '');
     const upload = 'https://www.googleapis.com/upload/drive/v3/' + filePath;
     const boundary = 'sentence-lens-' + crypto.randomUUID();
-    const metadata = JSON.stringify({name:'Sentence Lens - Writing Style.json',mimeType:'application/json',appProperties:{sentenceLens:styleMarker}});
+    const metadata = JSON.stringify({name:profile === 'personal' ? 'Sentence Lens - Writing Style.json' : 'Sentence Lens - ' + profiles[profile].mailbox + ' Style.json',mimeType:'application/json',appProperties:{sentenceLens:profileMarker(profile)}});
     const body = styleFileId ? data : '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + metadata +
       '\r\n--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + data + '\r\n--' + boundary + '--';
     const result = await drive(upload, {uploadType:styleFileId ? 'media' : 'multipart',fields:'id'}, {
@@ -475,19 +509,26 @@ styleSave.onclick = async () => {
     if (session !== token) return;
     styleFileId = saved.id;
     cacheStyle(notes);
+    if (styleEditor.value.trim() === notes) unsavedStyles.delete(profile);
     styleStatus.textContent = 'Style notes saved to Google Drive.';
   } catch (error) {
     if (session === token) { styleReady = false; styleStatus.textContent = error.message; }
   } finally {
-    if (session === token) styleBusy = styleSave.disabled = false;
+    if (session === token) styleBusy = styleSave.disabled = styleProfile.disabled = false;
   }
 };
 
 $('copy-mail-request').onclick = async () => {
   const folder = $('writing-folder').value;
-  const request = 'Use my signed-in NIC Workplace session to review up to 10 suitable messages in ' + folder +
-    ' for my personal work mailbox. Use only writing I authored. Ignore quoted replies, signatures, attachments, OTPs and automated mail. ' +
-    'Return up to six reusable style patterns, with no message text, names or operational details, for the Style notes field in Sentence Lens.';
+  const id = styleProfile.value;
+  const count = $('writing-review-count').value;
+  const limit = count === 'all' ? 'all accessible messages' : 'up to ' + count + ' suitable messages';
+  const request = 'Use my signed-in NIC Workplace session to review ' + limit + ' in the ' + folder +
+    ' folder of ' + profiles[id].mailbox + '. Start with the newest messages and report progress in batches. ' +
+    (id === 'personal' ? 'Use only text I authored. In Inbox, use only my clearly attributed writing in threads. ' :
+      'Identify authors where visible. Learn office conventions across delegates, and keep any observations about my personal voice separate. For Inbox, use only text authored by this office or its delegates. ') +
+    'Skip automated notices, OTPs, attachments and quoted duplicates. Report how many messages you reviewed and any coverage limits. ' +
+    'Finish with one copy-ready block of reusable style notes under 3,000 characters, without quoting mail bodies, naming correspondents or including operational details.';
   const feedback = $('writing-training-status');
   try {
     await navigator.clipboard.writeText(request);
@@ -508,13 +549,16 @@ $('writing-form').onsubmit = async event => {
   if (!notes) { status.textContent = 'Enter a rough draft or notes.'; return; }
   if (!settings.key) { status.textContent = 'Add an API key in Model settings first.'; return; }
   const previousDraft = draft.value;
+  const profile = styleProfile.value;
   button.disabled = true;
   status.textContent = 'Writing draft…';
   try {
     await styleLoad;
+    if (profile !== styleProfile.value) { status.textContent = 'Writing profile changed. Click Write draft again.'; return; }
     const data = await api('draft', {
-      ...settings, notes, styleNotes, format:$('writing-format').value, audience:$('writing-audience').value.trim()
+      ...settings, notes, styleNotes, profile, format:$('writing-format').value, audience:$('writing-audience').value.trim()
     });
+    if (profile !== styleProfile.value) { status.textContent = 'Writing profile changed. Click Write draft again.'; return; }
     if (draft.value === previousDraft) {
       draft.value = data.draft;
       draft.oninput();
