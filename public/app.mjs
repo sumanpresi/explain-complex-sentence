@@ -81,6 +81,7 @@ function disconnect(message, revoke = true) {
   $('files').textContent = 'Connect Drive to search your documents.';
   connected(false);
   resetStyleDrive();
+  settingsFileId = '';
   closeMail();
   sample();
   notice(message);
@@ -118,6 +119,7 @@ $('connect').onclick = () => {
         connected(true);
         styleWritable = window.google.accounts.oauth2.hasGrantedAllScopes(response, styleScope);
         styleLoad = loadDriveStyle(token);
+        loadDriveSettings(token);
         await listFiles();
       } catch (error) { if (token) disconnect(error.message, false); }
     }
@@ -321,6 +323,7 @@ function populateModels(preferred, accessible) {
 $('settings').onclick = () => {
   $('provider').value = settings.provider;
   $('key').value = settings.key;
+  $('remember-key').checked = rememberKey;
   $('models-feedback').textContent = '';
   populateModels(settings.model);
   $('model-dialog').showModal();
@@ -328,7 +331,7 @@ $('settings').onclick = () => {
 $('close-settings').onclick = () => $('model-dialog').close();
 $('model-dialog').addEventListener('close', () => { $('key').value = ''; });
 $('provider').onchange = () => {
-  $('key').value = $('provider').value === settings.provider ? settings.key : '';
+  $('key').value = $('provider').value === settings.provider ? settings.key : savedKeys[$('provider').value] || '';
   $('models-feedback').textContent = '';
   populateModels($('provider').value === settings.provider ? settings.model : 'gemini-2.5-flash');
 };
@@ -358,8 +361,11 @@ $('check-models').onclick = async () => {
 $('model-form').onsubmit = event => {
   event.preventDefault();
   settings = {provider:$('provider').value, model:$('model').value, key:$('key').value.trim()};
+  rememberKey = $('remember-key').checked;
+  if (settings.key) savedKeys[settings.provider] = settings.key; else delete savedKeys[settings.provider];
   $('model-status').textContent = settings.key ? settings.model : 'Sample mode';
   $('model-dialog').close();
+  saveDriveSettings();
 };
 $('explain').onclick = async () => {
   const selected = $('selection').value.trim();
@@ -734,3 +740,61 @@ $('mail-sent').onclick = () => openMailFolder('sent');
 $('mail-more').onclick = () => {
   if (mailOffset !== null) openMailFolder(mailFolder,mailOffset);
 };
+
+// Model settings sync: remembers the provider, model and API keys in a private Drive file.
+const settingsMarker = 'model-settings-v1';
+let rememberKey = true, settingsFileId = '', settingsSaving = Promise.resolve();
+const savedKeys = {};
+async function loadDriveSettings(session) {
+  try {
+    const data = await (await drive('files',{
+      q:"trashed = false and appProperties has { key='sentenceLens' and value='" + settingsMarker + "' }",
+      fields:'files(id)', orderBy:'modifiedTime desc', pageSize:1
+    })).json();
+    if (session !== token) return;
+    const id = data.files?.[0]?.id;
+    if (!id) { if (settings.key) saveDriveSettings(); return; }
+    const saved = await (await drive('files/' + encodeURIComponent(id),{alt:'media'})).json();
+    if (session !== token) return;
+    settingsFileId = id;
+    const keys = saved && typeof saved.keys === 'object' && saved.keys || {};
+    for (const provider of Object.keys(catalogs)) {
+      if (typeof keys[provider] === 'string' && /^[!-~]{4,512}$/.test(keys[provider]) && !savedKeys[provider]) savedKeys[provider] = keys[provider];
+    }
+    // A key typed in this session wins over the remembered one.
+    if (settings.key) return;
+    const provider = Object.hasOwn(catalogs,saved.provider) && savedKeys[saved.provider] ? saved.provider : Object.keys(catalogs).find(name => savedKeys[name]);
+    if (!provider) return;
+    const model = provider === saved.provider && typeof saved.model === 'string' && /^[a-zA-Z0-9._-]{1,100}$/.test(saved.model) ? saved.model : catalogs[provider].split(' ')[0];
+    settings = {provider, model, key:savedKeys[provider]};
+    $('model-status').textContent = settings.model;
+    if (!$('model-dialog').open) notice('Model settings and API key loaded from Google Drive.');
+  } catch (error) {
+    if (session === token) notice('Could not load saved model settings from Google Drive: ' + error.message);
+  }
+}
+function saveDriveSettings() {
+  const session = token;
+  if (!session) { if (rememberKey && settings.key) notice('Connect Drive to remember this API key for next time.'); return; }
+  if (!rememberKey && !settingsFileId) return;
+  if (!styleWritable) { if (rememberKey) notice('Reconnect Drive and allow file access to remember your API key.'); return; }
+  const data = JSON.stringify(rememberKey ? {provider:settings.provider, model:settings.model, keys:savedKeys} : {keys:{}});
+  settingsSaving = settingsSaving.then(async () => {
+    if (session !== token) return;
+    try {
+      const boundary = 'sentence-lens-' + crypto.randomUUID();
+      const metadata = JSON.stringify({name:'Sentence Lens - Model Settings.json',mimeType:'application/json',appProperties:{sentenceLens:settingsMarker}});
+      const body = settingsFileId ? data : '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + metadata +
+        '\r\n--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + data + '\r\n--' + boundary + '--';
+      const result = await drive('https://www.googleapis.com/upload/drive/v3/files' + (settingsFileId ? '/' + encodeURIComponent(settingsFileId) : ''),
+        {uploadType:settingsFileId ? 'media' : 'multipart',fields:'id'},
+        {method:settingsFileId ? 'PATCH' : 'POST',headers:{'Content-Type':settingsFileId ? 'application/json' : 'multipart/related; boundary=' + boundary},body});
+      const saved = await result.json();
+      if (session !== token) return;
+      settingsFileId = saved.id;
+      notice(rememberKey ? 'Model settings and API key saved to Google Drive.' : 'Saved API keys removed from Google Drive.');
+    } catch (error) {
+      if (session === token) notice('Could not save model settings to Google Drive: ' + error.message);
+    }
+  });
+}
