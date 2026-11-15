@@ -21,8 +21,11 @@
     <a class="button-link primary" href="https://mail.gov.in/" target="_blank" rel="noopener noreferrer">Open NIC Mail ↗</a>
     <p class="muted">Opens the full NIC mailbox at mail.gov.in in a new tab, where you sign in with your NIC password and OTP. No Drive connection or app password is needed.</p>
   </div>
+  <details class="mail-advanced">
+  <summary>Advanced: read mail inside this app</summary>
+  <p class="muted">This needs IMAP access and an application-specific password from NIC. IMAP is not currently offered on this account, so use Open NIC Mail above unless your administrator enables it.</p>
   <form id="mail-form">
-    <label for="mail-password">Or read mail here: NIC app password for suman1.das@gsi.gov.in</label>
+    <label for="mail-password">NIC app password for suman1.das@gsi.gov.in</label>
     <input id="mail-password" type="password" maxlength="20" autocomplete="off" required aria-describedby="mail-connection-help">
     <p class="muted" id="mail-connection-help">Connect your Google Drive account first. Sentence Lens sends the app password through its Vercel server to sign in to NIC for each read. The app keeps it only while this mailbox is open.</p>
     <div class="reader-actions">
@@ -48,6 +51,7 @@
       </article>
     </div>
   </div>
+  </details>
 </section>
 <section class="reader writing" id="write-like-suman" aria-labelledby="writing-title">
   <h2 id="writing-title">Write Like Suman</h2>
