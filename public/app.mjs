@@ -541,6 +541,29 @@ $('copy-mail-request').onclick = async () => {
   }
 };
 
+$('learn-style').onclick = async () => {
+  const status = $('learn-style-status');
+  const button = $('learn-style');
+  const emails = $('writing-emails').value.trim();
+  if (emails.length < 200) { status.textContent = 'Paste a few of your sent emails first (at least 200 characters).'; return; }
+  if (!settings.key) { status.textContent = 'Add an API key in Model settings first.'; return; }
+  const profile = styleProfile.value;
+  const before = styleEditor.value;
+  button.disabled = true;
+  status.textContent = 'Reading your emails…';
+  try {
+    const data = await api('style',{...settings, emails, styleNotes:before.trim().slice(0,3000)});
+    if (profile !== styleProfile.value) { status.textContent = 'Writing profile changed. Try again.'; return; }
+    if (styleEditor.value !== before) { status.textContent = 'Your edits to the style notes were kept. Try again to replace them.'; return; }
+    styleEditor.value = data.notes;
+    unsavedStyles.set(profile, data.notes);
+    cacheStyle(data.notes);
+    $('writing-emails').value = '';
+    status.textContent = 'Style notes updated. Drafts on this browser use them now; save to Google Drive to keep them on every device.';
+  } catch (error) { status.textContent = error.message; }
+  finally { button.disabled = false; }
+};
+
 const draft = $('writing-result');
 draft.oninput = () => { $('copy-draft').disabled = !draft.value.trim(); };
 $('writing-form').onsubmit = async event => {

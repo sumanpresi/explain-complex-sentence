@@ -91,6 +91,11 @@
     <select id="writing-folder"><option>Sent</option><option>Inbox</option></select>
     <label for="writing-review-count">Messages to review</label><select id="writing-review-count"><option>10</option><option selected>25</option><option>50</option><option value="all">All available</option></select>
     <button type="button" id="copy-mail-request">Copy mailbox review request</button>
+    <label for="writing-emails">Or paste emails you wrote</label>
+    <textarea id="writing-emails" rows="6" maxlength="24000" placeholder="Paste 10 to 25 of your sent emails here, one after another. Subject lines help."></textarea>
+    <p class="muted">The app sends this text and your current style notes to your selected model provider, which writes new style notes below. The pasted emails are not saved.</p>
+    <div class="reader-actions"><button type="button" id="learn-style">Write style notes from these emails</button>
+    <span id="learn-style-status" role="status"></span></div>
     <label for="writing-style-notes">Style notes</label>
     <textarea id="writing-style-notes" rows="4" maxlength="3000" placeholder="Paste general writing patterns, without message text or mailbox details."></textarea>
     <div class="reader-actions"><button type="button" id="save-style-notes">Save style notes to Google Drive</button>

@@ -22,4 +22,4 @@ The model selector contains the requested IDs. Access depends on the provider an
 
 ## Writing style sync
 
-Connect Drive, open Write Like Suman, and save the notes to Google Drive. The app creates Sentence Lens - Writing Style.json in My Drive and loads it after Drive connects on each device. Drafts use the saved notes with the model selected in Model settings. The browser keeps a local copy for drafting when Drive is disconnected.
+Connect Drive, open Write Like Suman, and save the notes to Google Drive. The app creates Sentence Lens - Writing Style.json in My Drive and loads it after Drive connects on each device. Drafts use the saved notes with the model selected in Model settings. Under Learn from work mail you can also paste a batch of your own sent emails and have the selected model write the style notes from them; the pasted emails are not stored. The browser keeps a local copy for drafting when Drive is disconnected.
