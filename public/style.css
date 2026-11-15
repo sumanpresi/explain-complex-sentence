@@ -3,3 +3,5 @@
 
 .writing{margin-top:12px;scroll-margin-top:16px}.writing h2{font-size:1.25rem}.writing-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.writing-grid>*{min-width:0}.writing-training{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}.writing-training summary{cursor:pointer;font-weight:700}.writing-links{display:flex;gap:14px;flex-wrap:wrap}.writing-training select{display:block;width:min(100%,260px);margin-bottom:8px}.top-actions>a{display:inline-flex;align-items:center;text-underline-offset:4px;font-size:.85rem;padding:0 .4rem;min-height:36px}
 @media(max-width:700px){.writing-grid{grid-template-columns:1fr;gap:8px}}
+
+#mail-password{max-width:360px}#mail-form .reader-actions{justify-content:flex-start}.mail-list ul{padding:0;list-style:none}.mail-list li+li{margin-top:6px}.mail-list li button{width:100%;text-align:left;overflow-wrap:anywhere}.mail-list li button[aria-current="true"]{background:var(--mint)}.mail-list small{display:block;margin-top:4px;font-weight:400}.mail-preview h3{margin:.75rem 0 .4rem;overflow-wrap:anywhere}.mail-preview .paper{font:inherit;line-height:1.55}.mail-preview .paper:empty{display:none}

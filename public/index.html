@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#182c27"><meta name="description" content="Find documents in Google Drive and simplify any selected passage."><title>Sentence Lens</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon-192.png"><link rel="stylesheet" href="/style.css"><script defer src="https://accounts.google.com/gsi/client"></script><script type="module" src="/app.mjs"></script></head>
 <body>
-<header class="top"><a class="brand" href="/" aria-label="Sentence Lens home"><span class="mark">↳</span><span>Sentence Lens</span></a><div class="top-actions"><button id="install" hidden>Install app</button><a href="#write-like-suman">Write Like Suman</a><button id="settings" aria-haspopup="dialog">Model settings</button><button id="connect">Connect Drive</button></div></header>
+<header class="top"><a class="brand" href="/" aria-label="Sentence Lens home"><span class="mark">↳</span><span>Sentence Lens</span></a><div class="top-actions"><button id="install" hidden>Install app</button><a href="#work-mail">Work mail</a><a href="#write-like-suman">Write Like Suman</a><button id="settings" aria-haspopup="dialog">Model settings</button><button id="connect">Connect Drive</button></div></header>
 <main>
 <div class="intro"><div><p class="eyebrow">GOOGLE DRIVE READER</p><h1>Make sense of<br>complex sentences.</h1></div><p>Open a document, select the words you want to understand, and get a one-line explanation.</p></div>
 <div class="workspace">
@@ -13,6 +13,38 @@
 <div class="paper" id="paper" tabindex="0" aria-label="Document text"></div><label for="selection">Selected passage</label><textarea id="selection" rows="3" placeholder="Select text above or paste a passage here." maxlength="4000"></textarea><div class="reader-actions"><span id="selection-status" aria-live="polite">Select text in the document or paste a passage.</span><button class="primary" id="explain">Explain selection <span aria-hidden="true">↗</span></button></div></section>
 <aside class="inspector" aria-labelledby="explanation-title"><div class="panel-head"><h2 id="explanation-title">Explanation</h2><span class="spark" aria-hidden="true">✦</span></div><div class="answer" id="answer" aria-live="polite">Your one-line explanation will appear here.</div><button id="copy" hidden>Copy explanation</button><p class="model-status" id="model-status">Sample mode</p></aside>
 </div><p id="notice" role="status" aria-live="polite"></p>
+<section class="reader writing" id="work-mail" aria-labelledby="mail-title">
+  <div class="panel-head"><h2 id="mail-title">GSI work mail</h2>
+    <a href="https://workplace.mgovcloud.in/#mail_app/mail/folder/inbox" target="_blank" rel="noopener noreferrer">Open NIC Workplace ↗</a>
+  </div>
+  <form id="mail-form">
+    <label for="mail-password">NIC app password for suman1.das@gsi.gov.in</label>
+    <input id="mail-password" type="password" maxlength="20" autocomplete="off" required aria-describedby="mail-connection-help">
+    <p class="muted" id="mail-connection-help">Connect your Google Drive account first. Sentence Lens sends the app password through its Vercel server to sign in to NIC for each read. The app keeps it only while this mailbox is open.</p>
+    <div class="reader-actions">
+      <button class="primary" type="submit" id="mail-connect">Open Inbox</button>
+      <button type="button" id="mail-disconnect" hidden>Close mailbox</button>
+    </div>
+  </form>
+  <p id="mail-status" role="status"></p>
+  <div id="mail-workspace" hidden>
+    <div class="writing-links" aria-label="Mail folders">
+      <button type="button" id="mail-inbox" aria-pressed="true">Inbox</button>
+      <button type="button" id="mail-sent" aria-pressed="false">Sent</button>
+    </div>
+    <div class="writing-grid">
+      <div class="mail-list" aria-label="Messages">
+        <ul id="mail-messages"></ul>
+        <button type="button" id="mail-more" hidden>Load older messages</button>
+      </div>
+      <article class="mail-preview" aria-label="Message preview">
+        <h3 id="mail-subject">Select a message</h3>
+        <p id="mail-from" class="muted"></p>
+        <div class="paper" id="mail-body"></div>
+      </article>
+    </div>
+  </div>
+</section>
 <section class="reader writing" id="write-like-suman" aria-labelledby="writing-title">
   <h2 id="writing-title">Write Like Suman</h2>
   <label for="writing-profile">Writing profile and mailbox</label>

@@ -81,6 +81,7 @@ function disconnect(message, revoke = true) {
   $('files').textContent = 'Connect Drive to search your documents.';
   connected(false);
   resetStyleDrive();
+  closeMail();
   sample();
   notice(message);
 }
@@ -577,4 +578,121 @@ $('copy-draft').onclick = async () => {
   } catch {
     $('writing-status').textContent = 'Select and copy the draft manually.';
   }
+};
+
+let mailPassword = '';
+let mailFolder = 'inbox';
+let mailOffset = null;
+let mailRequest = 0;
+let mailController;
+const mailStatus = $('mail-status');
+const mailList = $('mail-messages');
+
+function closeMail() {
+  mailRequest++;
+  mailController?.abort();
+  mailPassword = '';
+  mailOffset = null;
+  $('mail-password').value = '';
+  $('mail-connect').disabled = false;
+  $('mail-inbox').disabled = $('mail-sent').disabled = $('mail-more').disabled = false;
+  $('mail-more').hidden = $('mail-workspace').hidden = $('mail-disconnect').hidden = true;
+  mailList.replaceChildren();
+  showMailPreview();
+  mailStatus.textContent = '';
+}
+
+function showMailPreview(message) {
+  $('mail-subject').textContent = message?.subject || 'Select a message';
+  $('mail-from').textContent = message ? [message.correspondent, mailDate(message.date)].filter(Boolean).join(' · ') : '';
+  $('mail-body').textContent = message ?
+    (message.body || 'No text preview is available. Open this message in NIC Workplace.') +
+      (message.partial ? '\n\nPreview limited. Open NIC Workplace for the full message.' : '') : '';
+}
+function mailDate(value) {
+  const date = value && new Date(value);
+  return date && Number.isFinite(date.valueOf()) ? date.toLocaleString() : '';
+}
+
+async function requestMail(fields, update) {
+  mailController?.abort();
+  mailController = new AbortController();
+  const id = ++mailRequest;
+  const folder = mailFolder;
+  mailStatus.textContent = fields.uid ? 'Opening message…' : 'Loading ' + (folder === 'sent' ? 'Sent' : 'Inbox') + '…';
+  $('mail-connect').disabled = $('mail-inbox').disabled = $('mail-sent').disabled = $('mail-more').disabled = true;
+  try {
+    const result = await fetch('/api/mail',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({driveToken:token,password:mailPassword,folder,...fields}),
+      signal:mailController.signal
+    });
+    const data = await result.json();
+    if (!result.ok) throw new Error(data.error || 'Could not open work mail.');
+    if (id === mailRequest) {
+      mailStatus.textContent = '';
+      update(data);
+    }
+  } catch (error) {
+    if (id === mailRequest) {
+      if ($('mail-workspace').hidden) closeMail();
+      mailStatus.textContent = error instanceof SyntaxError ? 'Mail service is unavailable. Open NIC Workplace.' : error.message;
+    }
+  } finally {
+    if (id === mailRequest) $('mail-connect').disabled = $('mail-inbox').disabled = $('mail-sent').disabled = $('mail-more').disabled = false;
+  }
+}
+
+function openMailFolder(folder, offset = 0) {
+  if (!mailPassword) return;
+  mailFolder = folder;
+  $('mail-inbox').setAttribute('aria-pressed',String(folder === 'inbox'));
+  $('mail-sent').setAttribute('aria-pressed',String(folder === 'sent'));
+  if (!offset) {
+    mailList.replaceChildren();
+    showMailPreview();
+    $('mail-more').hidden = true;
+  }
+  return requestMail({offset},data => {
+    $('mail-workspace').hidden = false;
+    mailOffset = data.nextOffset;
+    $('mail-more').hidden = mailOffset === null;
+    if (!offset && !data.messages.length) mailStatus.textContent = 'This folder is empty.';
+    const visibleUids = new Set([...mailList.querySelectorAll('button')].map(row => row.dataset.uid));
+    for (const message of data.messages) {
+      if (visibleUids.has(String(message.uid))) continue;
+      const li = document.createElement('li');
+      const button = document.createElement('button');
+      const meta = document.createElement('small');
+      button.type = 'button';
+      button.dataset.uid = message.uid;
+      meta.textContent = [message.correspondent,mailDate(message.date)].filter(Boolean).join(' · ');
+      button.append(message.subject,meta);
+      button.onclick = () => requestMail({uid:message.uid,validity:data.validity},({message:opened}) => {
+        for (const row of mailList.querySelectorAll('button')) row.setAttribute('aria-current',String(row === button));
+        showMailPreview(opened);
+      });
+      li.append(button);
+      mailList.append(li);
+    }
+  });
+}
+
+$('mail-form').onsubmit = event => {
+  event.preventDefault();
+  if (!token || $('connect').textContent !== 'Disconnect') {
+    mailStatus.textContent = 'Connect Drive at the top of the page, then open your Inbox.';
+    return;
+  }
+  mailPassword = $('mail-password').value.trim();
+  $('mail-password').value = '';
+  $('mail-disconnect').hidden = false;
+  openMailFolder('inbox');
+};
+$('mail-disconnect').onclick = closeMail;
+$('mail-inbox').onclick = () => openMailFolder('inbox');
+$('mail-sent').onclick = () => openMailFolder('sent');
+$('mail-more').onclick = () => {
+  if (mailOffset !== null) openMailFolder(mailFolder,mailOffset);
 };
