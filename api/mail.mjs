@@ -39,7 +39,7 @@ async function handleMail(request) {
   }
   const {driveToken,password,folder,uid,validity,offset = 0} = input || {};
   if (typeof driveToken !== 'string' || !/^[!-~]{1,2048}$/.test(driveToken)) return reply({error:'Connect your Google Drive account first.'},401);
-  if (typeof password !== 'string' || !/^[a-zA-Z0-9]{12}$/.test(password)) return reply({error:'Enter your 12-character NIC app password.'},400);
+  if (typeof password !== 'string' || !/^[!-~]{12}$/.test(password)) return reply({error:'Enter your 12-character NIC app password.'},400);
   if (folder !== 'inbox' && folder !== 'sent') return reply({error:'Choose Inbox or Sent.'},400);
   if (uid !== undefined && (!Number.isInteger(uid) || uid < 1 || uid > 4294967295 || typeof validity !== 'string')) return reply({error:'Refresh the folder and try again.'},400);
   if (!Number.isSafeInteger(offset) || offset < 0) return reply({error:'Invalid page.'},400);
@@ -48,7 +48,11 @@ async function handleMail(request) {
     const result = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',{
       headers:{Authorization:'Bearer ' + driveToken},signal:AbortSignal.timeout(5000)
     });
-    if (!result.ok || (await result.json()).user?.emailAddress?.toLowerCase() !== driveOwner) {
+    if (result.status === 401 || result.status === 403) {
+      return reply({error:'Google Drive sign-in has expired or lacks access. Disconnect Drive and connect again.'},403);
+    }
+    if (!result.ok) return reply({error:'Google Drive verification is temporarily unavailable. Try again.'},502);
+    if ((await result.json()).user?.emailAddress?.toLowerCase() !== driveOwner) {
       return reply({error:'Reconnect your Google Drive account and try again.'},403);
     }
   } catch {
@@ -63,9 +67,12 @@ async function handleMail(request) {
   });
   // Handle socket errors without logging credentials, mailbox names or message content.
   client.on('error', () => {});
-  const deadline = setTimeout(() => client.close(),18000);
+  let expired = false;
+  let connected = false;
+  const deadline = setTimeout(() => { expired = true; client.close(); },18000);
   try {
     await client.connect();
+    connected = true;
     let path = 'INBOX';
     if (folder === 'sent') {
       const rows = await client.list();
@@ -105,7 +112,9 @@ async function handleMail(request) {
     if (error.authenticationFailed || error.serverResponseCode === 'AUTHENTICATIONFAILED') {
       return reply({error:'NIC rejected the sign-in. Check the app password and whether IMAP access is enabled.'},401);
     }
-    return reply({error:'Could not read this folder through NIC IMAP. Try again or open NIC Workplace.'},502);
+    if (expired) return reply({error:'The connection to NIC timed out. Try again or open NIC Workplace.'},504);
+    return reply({error:connected ? 'NIC connected, but the folder or message could not be read. Try again or open NIC Workplace.' :
+      'Sentence Lens could not connect to the NIC mail server. Check that IMAP is enabled for your account, or open NIC Workplace.'},502);
   } finally {
     clearTimeout(deadline);
     client.close();

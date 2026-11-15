@@ -621,25 +621,33 @@ async function requestMail(fields, update) {
   const folder = mailFolder;
   mailStatus.textContent = fields.uid ? 'Opening message…' : 'Loading ' + (folder === 'sent' ? 'Sent' : 'Inbox') + '…';
   $('mail-connect').disabled = $('mail-inbox').disabled = $('mail-sent').disabled = $('mail-more').disabled = true;
+  const controller = mailController;
+  const deadline = setTimeout(() => controller.abort(), 35000);
+  let result;
   try {
-    const result = await fetch('/api/mail',{
+    result = await fetch('/api/mail',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({driveToken:token,password:mailPassword,folder,...fields}),
-      signal:mailController.signal
+      cache:'no-store',
+      signal:controller.signal
     });
-    const data = await result.json();
-    if (!result.ok) throw new Error(data.error || 'Could not open work mail.');
+    const data = await result.json().catch(() => null);
+    if (!result.ok) throw new Error(data?.error || 'The mail service returned HTTP ' + result.status + '. Try again or open NIC Workplace.');
+    if (!data) throw new Error('The mail service returned an unreadable response. Try again.');
     if (id === mailRequest) {
       mailStatus.textContent = '';
       update(data);
     }
   } catch (error) {
     if (id === mailRequest) {
+      const timedOut = controller.signal.aborted;
       if ($('mail-workspace').hidden) closeMail();
-      mailStatus.textContent = error instanceof SyntaxError ? 'Mail service is unavailable. Open NIC Workplace.' : error.message;
+      mailStatus.textContent = timedOut ? 'The mail request timed out. Try again or open NIC Workplace.' :
+        !result ? 'Your browser could not reach the mail service. Try opening Sentence Lens in a regular Safari or Chrome tab, or use Open NIC Workplace above.' : error.message;
     }
   } finally {
+    clearTimeout(deadline);
     if (id === mailRequest) $('mail-connect').disabled = $('mail-inbox').disabled = $('mail-sent').disabled = $('mail-more').disabled = false;
   }
 }
@@ -685,7 +693,12 @@ $('mail-form').onsubmit = event => {
     mailStatus.textContent = 'Connect Drive at the top of the page, then open your Inbox.';
     return;
   }
-  mailPassword = $('mail-password').value.trim();
+  const password = $('mail-password').value.replace(/\s/g,'');
+  if (!/^[!-~]{12}$/.test(password)) {
+    mailStatus.textContent = 'Enter your 12-character NIC app password.';
+    return;
+  }
+  mailPassword = password;
   $('mail-password').value = '';
   $('mail-disconnect').hidden = false;
   openMailFolder('inbox');
