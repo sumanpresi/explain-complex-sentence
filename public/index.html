@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#182c27"><meta name="description" content="Find documents in Google Drive and simplify any selected passage."><title>Sentence Lens</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon-192.png"><link rel="stylesheet" href="/style.css"><script defer src="https://accounts.google.com/gsi/client"></script><script type="module" src="/app.mjs"></script></head>
 <body>
-<header class="top"><a class="brand" href="/" aria-label="Sentence Lens home"><span class="mark">↳</span><span>Sentence Lens</span></a><div class="top-actions"><button id="install" hidden>Install app</button><a href="#work-mail">Work mail</a><a href="#write-like-suman">Write Like Suman</a><button id="settings" aria-haspopup="dialog">Model settings</button><button id="connect">Connect Drive</button></div></header>
+<header class="top"><a class="brand" href="/" aria-label="Sentence Lens home"><span class="mark">↳</span><span>Sentence Lens</span></a><div class="top-actions"><button id="install" hidden>Install app</button><a class="button-link" href="https://mail.gov.in/" target="_blank" rel="noopener noreferrer">Open NIC Mail ↗</a><a href="#work-mail">Work mail</a><a href="#write-like-suman">Write Like Suman</a><button id="settings" aria-haspopup="dialog">Model settings</button><button id="connect">Connect Drive</button></div></header>
 <main>
 <div class="intro"><div><p class="eyebrow">GOOGLE DRIVE READER</p><h1>Make sense of<br>complex sentences.</h1></div><p>Open a document, select the words you want to understand, and get a one-line explanation.</p></div>
 <div class="workspace">
@@ -17,8 +17,12 @@
   <div class="panel-head"><h2 id="mail-title">GSI work mail</h2>
     <a href="https://workplace.mgovcloud.in/#mail_app/mail/folder/inbox" target="_blank" rel="noopener noreferrer">Open NIC Workplace ↗</a>
   </div>
+  <div class="mail-open">
+    <a class="button-link primary" href="https://mail.gov.in/" target="_blank" rel="noopener noreferrer">Open NIC Mail ↗</a>
+    <p class="muted">Opens the full NIC mailbox at mail.gov.in in a new tab, where you sign in with your NIC password and OTP. No Drive connection or app password is needed.</p>
+  </div>
   <form id="mail-form">
-    <label for="mail-password">NIC app password for suman1.das@gsi.gov.in</label>
+    <label for="mail-password">Or read mail here: NIC app password for suman1.das@gsi.gov.in</label>
     <input id="mail-password" type="password" maxlength="20" autocomplete="off" required aria-describedby="mail-connection-help">
     <p class="muted" id="mail-connection-help">Connect your Google Drive account first. Sentence Lens sends the app password through its Vercel server to sign in to NIC for each read. The app keeps it only while this mailbox is open.</p>
     <div class="reader-actions">
