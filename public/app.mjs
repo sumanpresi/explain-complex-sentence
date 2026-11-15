@@ -158,7 +158,7 @@ async function listFiles(append = false) {
   try {
     const result = await drive('files', {
       q:conditions.join(' and '), fields:'nextPageToken,incompleteSearch,files(id,name,mimeType,webViewLink,resourceKey,size,capabilities(canDownload),shortcutDetails(targetId))',
-      pageSize:'35', orderBy:'modifiedTime desc', supportsAllDrives:'true', includeItemsFromAllDrives:'true',
+      pageSize:'35', ...(query ? {} : {orderBy:'modifiedTime desc'}), supportsAllDrives:'true', includeItemsFromAllDrives:'true',
       ...(append && nextPage ? {pageToken:nextPage} : {})
     });
     const data = await result.json();
@@ -333,9 +333,11 @@ $('provider').onchange = () => {
   populateModels($('provider').value === settings.provider ? settings.model : 'gemini-2.5-flash');
 };
 async function api(action, payload) {
-  const result = await fetch('/api/ai', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});
+  let result;
+  try { result = await fetch('/api/ai', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})}); }
+  catch { throw new Error('Could not reach Sentence Lens. Check your internet connection and try again.'); }
   const data = await result.json().catch(() => ({}));
-  if (!result.ok) throw new Error(data.error || 'The explanation service is unavailable.');
+  if (!result.ok) throw new Error(data.error || 'The AI service is unavailable (HTTP ' + result.status + '). Try again.');
   return data;
 }
 $('check-models').onclick = async () => {
